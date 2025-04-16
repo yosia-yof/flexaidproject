@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class HelpRequestScreen extends StatefulWidget {
   @override
@@ -6,125 +8,161 @@ class HelpRequestScreen extends StatefulWidget {
 }
 
 class _HelpRequestScreenState extends State<HelpRequestScreen> {
-  final _formKey = GlobalKey<FormState>();
-  String? selectedService;
-  String description = '';
+  String _selectedService = 'Flat Tire';
+  String _currentAddress = 'Fetching location...';
+  Position? _currentPosition;
 
-  List<String> services = [
+  final List<String> services = [
     'Flat Tire',
     'Fuel',
     'Battery Jump',
-    'Towing',
-    'Locked Out',
+    'Tow',
+    'Lockout',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Check if location services are enabled
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      setState(() {
+        _currentAddress = 'Location services are disabled.';
+      });
+      return;
+    }
+
+    // Request permission
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        setState(() {
+          _currentAddress = 'Location permissions are denied.';
+        });
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      setState(() {
+        _currentAddress = 'Location permissions are permanently denied.';
+      });
+      return;
+    }
+
+    // Get current position
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+    setState(() {
+      _currentPosition = position;
+    });
+
+    // Get human-readable address
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+      Placemark place = placemarks[0];
+      setState(() {
+        _currentAddress =
+        "${place.street}, ${place.locality}, ${place.administrativeArea}, ${place.country}";
+      });
+    } catch (e) {
+      setState(() {
+        _currentAddress = "Error fetching address.";
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Request Help'),
-        backgroundColor: Colors.blueAccent,
+        title: Text("Request Assistance"),
+        backgroundColor: Colors.redAccent,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              // Title
-              Text(
-                'What kind of help do you need?',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 20),
-
-              // Service Type Dropdown
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: 'Service Type',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                items: services
-                    .map((service) => DropdownMenuItem(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Select Service Type",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              value: _selectedService,
+              items: services.map((String service) {
+                return DropdownMenuItem<String>(
                   value: service,
                   child: Text(service),
-                ))
-                    .toList(),
-                value: selectedService,
-                onChanged: (value) => setState(() => selectedService = value),
-                validator: (value) =>
-                value == null ? 'Please select a service' : null,
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedService = value!;
+                });
+              },
+              decoration: InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12),
               ),
-              SizedBox(height: 20),
+            ),
+            SizedBox(height: 20),
 
-              // Location Display
-              Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.location_on, color: Colors.red),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Your current location will be used.',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.edit),
-                      onPressed: () {
-                        // Add manual location option later
-                      },
-                    ),
-                  ],
-                ),
+            Text("Current Location",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
               ),
-              SizedBox(height: 20),
+              child: Text(_currentAddress),
+            ),
 
-              // Description Field
-              TextFormField(
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'Additional Notes (optional)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onChanged: (value) => description = value,
+            SizedBox(height: 20),
+            Text("Additional Notes (Optional)",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            SizedBox(height: 10),
+            TextField(
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Enter any additional details...',
+                border: OutlineInputBorder(),
               ),
-              SizedBox(height: 30),
+            ),
+            SizedBox(height: 30),
 
-              // Submit Button
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    // Send request to backend later
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Request sent successfully!')),
-                    );
-                    Navigator.pop(context); // Go back to home screen
-                  }
-                },
+            Center(
+              child: ElevatedButton.icon(
+                icon: Icon(Icons.send),
+                label: Text("Send Request"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Colors.redAccent,
+                  padding: EdgeInsets.symmetric(vertical: 15, horizontal: 25),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
-                child: Text(
-                  'Request Assistance',
-                  style: TextStyle(fontSize: 16),
-                ),
+                onPressed: () {
+                  // TODO: Submit request (integrate backend later)
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Request submitted!")),
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

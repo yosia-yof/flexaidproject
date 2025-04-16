@@ -4,6 +4,10 @@ import 'package:flexaidproject/UserHomeScreen.dart';
 import 'package:flutter/material.dart';
 
 class LoginScreen extends StatelessWidget {
+  TextEditingController username = TextEditingController();
+  TextEditingController password = TextEditingController();
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -36,6 +40,7 @@ class LoginScreen extends StatelessWidget {
 
                 // Email Field
                 TextField(
+                  controller: username,
                   decoration: InputDecoration(
                     labelText: 'Email',
                     hintText: 'Enter your email',
@@ -49,6 +54,7 @@ class LoginScreen extends StatelessWidget {
 
                 // Password Field
                 TextField(
+                  controller: password,
                   obscureText: true,
                   decoration: InputDecoration(
                     labelText: 'Password',
@@ -65,10 +71,20 @@ class LoginScreen extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () {
                     // Handle login
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => UserHomeScreen()),
-                    );
+
+                    if(username.text.toString() == "user"){
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => UserHomeScreen()),
+                      );
+                    }else if(username.text.toString() == "company"){
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => CompanyDashboardScreen()),
+                      );
+                    }else{
+
+                    }
                     // Navigator.pushReplacement(
                     //   context,
                     //   MaterialPageRoute(builder: (context) => CompanyDashboardScreen()),
